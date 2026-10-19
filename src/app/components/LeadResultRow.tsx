@@ -24,7 +24,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "./ui/dialog";
-import { Trash2, ChevronRight, CheckCircle2, Circle, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Trash2, ChevronRight, Check, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 
 const getPlatformIcon = (platform: string) => {
@@ -159,16 +159,15 @@ export function LeadResultRow({
         {onToggleResponded && (
           <Button
             type="button"
-            variant={isResponded ? "secondary" : "outline"}
-            size="sm"
+            variant={isResponded ? "default" : "outline"}
+            size="icon"
             onClick={() => onToggleResponded(result.id, !isResponded)}
-            className={`flex-shrink-0 mt-1.5 h-7 px-2 gap-1 text-xs ${isResponded ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
+            className={`flex-shrink-0 mt-1.5 h-7 w-7 ${isResponded ? "" : "text-muted-foreground hover:text-primary"}`}
             aria-label={isResponded ? "Mark as not responded" : "Mark as responded"}
             aria-pressed={isResponded}
-            title={isResponded ? "Click to mark as not responded" : "Mark this lead as replied to"}
+            title={isResponded ? "Responded — click to undo" : "Mark as responded"}
           >
-            {isResponded ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">{isResponded ? "Responded" : "Mark responded"}</span>
+            <Check className="w-3.5 h-3.5" />
           </Button>
         )}
 
