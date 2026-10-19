@@ -28,14 +28,6 @@ export const FORUM_PLATFORMS: ForumPlatform[] = [
 export const getForumLabel = (id: string): string =>
   FORUM_PLATFORMS.find((forum) => forum.id === id)?.label ?? id;
 
-// Reasons offered when a user reports a quality problem with a specific lead.
-export const LEAD_REPORT_REASONS: { id: "not_relevant" | "wrong_forum" | "duplicate" | "other"; label: string }[] = [
-  { id: "not_relevant", label: "Not relevant to my product" },
-  { id: "wrong_forum", label: "Posted on the wrong forum" },
-  { id: "duplicate", label: "Duplicate of another lead" },
-  { id: "other", label: "Other" },
-];
-
 export const PLAN_LIMITS = {
   free: {
     maxRequests: 3,

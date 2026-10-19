@@ -1,16 +1,9 @@
 import { useState } from "react";
-import { ApiResult, ApiProduct, ApiError, submitErrorReport, rateResult, LeadReportReason } from "../lib/api";
-import { FORUM_PLATFORMS, LEAD_REPORT_REASONS } from "../lib/constants";
+import { ApiResult, ApiProduct, ApiError, rateResult } from "../lib/api";
+import { FORUM_PLATFORMS } from "../lib/constants";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Textarea } from "./ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -31,7 +24,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "./ui/dialog";
-import { Trash2, ChevronRight, CheckCircle2, Circle, Flag, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Trash2, ChevronRight, CheckCircle2, Circle, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 
 const getPlatformIcon = (platform: string) => {
@@ -112,48 +105,6 @@ export function LeadResultRow({
     } else {
       setRatingNote("");
       setIsNoteOpen(true);
-    }
-  };
-
-  // Report a quality issue with this lead (e.g. not relevant, wrong forum).
-  const [isReportOpen, setIsReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState<LeadReportReason>(LEAD_REPORT_REASONS[0].id);
-  const [reportDetails, setReportDetails] = useState("");
-  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
-
-  const handleOpenReport = () => {
-    setReportReason(LEAD_REPORT_REASONS[0].id);
-    setReportDetails("");
-    setIsReportOpen(true);
-  };
-
-  const handleSubmitReport = async () => {
-    if (reportReason === "other" && !reportDetails.trim()) {
-      toast.error("Please add a few details so we know what's wrong");
-      return;
-    }
-    setIsSubmittingReport(true);
-    try {
-      const reasonLabel = LEAD_REPORT_REASONS.find((option) => option.id === reportReason)?.label ?? reportReason;
-      const details = reportDetails.trim();
-      await submitErrorReport({
-        message: details ? `Lead report: ${reasonLabel}. ${details}` : `Lead report: ${reasonLabel}`,
-        page: window.location.pathname,
-        details: {
-          kind: "lead_report",
-          reason: reportReason,
-          productId: result.productId,
-          resultId: result.id,
-          link: result.link,
-        },
-      });
-      toast.success("Thanks — this helps us improve lead matching.");
-      setIsReportOpen(false);
-    } catch (err) {
-      const message = err instanceof ApiError || err instanceof Error ? err.message : "Failed to send report";
-      toast.error(message);
-    } finally {
-      setIsSubmittingReport(false);
     }
   };
 
@@ -276,66 +227,6 @@ export function LeadResultRow({
                   </>
                 ) : (
                   "Submit"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
-          <DialogTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleOpenReport}
-              className="flex-shrink-0 mt-1.5 h-7 w-7 text-muted-foreground hover:text-foreground"
-              aria-label="Report an issue with this lead"
-              title="Report an issue with this lead"
-            >
-              <Flag className="w-3.5 h-3.5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Report an issue with this lead</DialogTitle>
-              <DialogDescription className="break-words">
-                "{result.title || result.link}" — let us know what's wrong so we can improve matching.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <Select value={reportReason} onValueChange={(value) => setReportReason(value as LeadReportReason)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEAD_REPORT_REASONS.map((option) => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Textarea
-                placeholder="Anything else we should know? (optional)"
-                value={reportDetails}
-                onChange={(e) => setReportDetails(e.target.value)}
-                rows={3}
-                className="resize-none"
-              />
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsReportOpen(false)} disabled={isSubmittingReport}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={handleSubmitReport} disabled={isSubmittingReport}>
-                {isSubmittingReport ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  "Submit Report"
                 )}
               </Button>
             </DialogFooter>

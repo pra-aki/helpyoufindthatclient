@@ -379,8 +379,6 @@ export async function listJobLeads(
 
 // ---- Error reports ----
 
-export type LeadReportReason = "not_relevant" | "wrong_forum" | "duplicate" | "other";
-
 export interface ErrorReportInput {
   // What the user says happened (required, up to 2000 characters).
   message: string;
@@ -393,8 +391,7 @@ export interface ErrorReportInput {
 }
 
 /**
- * Sends a report to the owner. Used for both the general "Report a Problem" form and the
- * per-lead flag, which puts the lead's ids in `details`.
+ * Sends a report to the owner. Used by the "Report a Problem" form.
  * Backend: POST /api/error-reports -> 201 { report: { id, createdAt } }; 5 per user per minute.
  */
 export async function submitErrorReport(input: ErrorReportInput) {
