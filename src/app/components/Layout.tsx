@@ -1,31 +1,68 @@
-import { Link, Outlet, useNavigate, useLocation } from "react-router";
+import { Link, Outlet, useNavigate, useLocation, useParams } from "react-router";
 import { useEffect, useState } from "react";
 import { getCurrentUser, logout, User } from "../lib/auth";
 import { Button } from "./ui/button";
-import { LayoutDashboard, CreditCard, UserCircle, LogOut, Menu, X, Search, Plus, Mail, MessageSquare } from "lucide-react";
-import { Badge } from "./ui/badge";
-import { Progress } from "./ui/progress";
-import { mockLeadRequests, LeadRequest } from "../lib/mock-data";
+import { LayoutDashboard, UserCircle, LogOut, Menu, X, Package, ListChecks, CalendarClock, Coins } from "lucide-react";
+import { listProducts, ApiProduct } from "../lib/api";
+import { CreditsProvider, useCredits } from "../lib/credits-context";
+
+/** Credit balance pill, shown in the header and linking to the full ledger on Profile. */
+function CreditsBadge() {
+  const { balance, isLoading } = useCredits();
+
+  return (
+    <Link
+      to="/dashboard/profile"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+      title="View your credits"
+    >
+      <Coins className="w-4 h-4" />
+      {isLoading && balance === null ? "…" : `${balance ?? 0} credit${balance === 1 ? "" : "s"}`}
+    </Link>
+  );
+}
 
 export function Layout() {
+  return (
+    <CreditsProvider>
+      <LayoutContent />
+    </CreditsProvider>
+  );
+}
+
+function LayoutContent() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { productId } = useParams();
   const [user, setUser] = useState<User | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [requests, setRequests] = useState<LeadRequest[]>(mockLeadRequests);
+  const [products, setProducts] = useState<ApiProduct[]>([]);
 
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      navigate("/login");
-    } else {
-      setUser(currentUser);
-    }
+    let cancelled = false;
+    getCurrentUser().then((currentUser) => {
+      if (cancelled) return;
+      if (!currentUser) {
+        navigate("/login");
+      } else {
+        setUser(currentUser);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  const handleLogout = () => {
-    logout();
+  useEffect(() => {
+    if (!user) return;
+    listProducts()
+      .then(setProducts)
+      .catch(() => setProducts([]));
+  }, [user]);
+
+  const handleLogout = async () => {
+    await logout();
     navigate("/login");
   };
 
@@ -33,51 +70,16 @@ export function Layout() {
     return location.pathname === path;
   };
 
-  const handleNewSearch = () => {
-    navigate("/dashboard");
-    // Close sidebar on mobile
-    if (window.innerWidth < 768) {
-      setSidebarOpen(false);
-    }
-    // Scroll to top of main content after navigation
-    setTimeout(() => {
-      const mainContent = document.querySelector('.main-content');
-      if (mainContent) {
-        mainContent.scrollTop = 0;
-      }
-    }, 100);
-  };
+  // The products overview (landing) page doesn't need the products sidebar
+  const isLandingPage = location.pathname === "/dashboard";
+  // The add-product page is a focused form and doesn't need a sidebar either
+  const isAddProductPage = location.pathname === "/dashboard/products/new";
+  const hideSidebar = isLandingPage || isAddProductPage;
 
   const handleSidebarLinkClick = () => {
     // Close sidebar on mobile
     if (window.innerWidth < 768) {
       setSidebarOpen(false);
-    }
-  };
-
-  const getStatusIcon = (status: LeadRequest["status"]) => {
-    switch (status) {
-      case "pending":
-        return "⏳";
-      case "in-progress":
-        return "🔄";
-      case "completed":
-        return "✓";
-      case "cancelled":
-        return "✕";
-    }
-  };
-
-  const getStatusColor = (status: LeadRequest["status"]) => {
-    switch (status) {
-      case "pending":
-        return "bg-muted text-muted-foreground";
-      case "in-progress":
-        return "bg-accent text-accent-foreground";
-      case "completed":
-        return "bg-primary text-primary-foreground";
-      case "cancelled":
-        return "bg-destructive/10 text-destructive";
     }
   };
 
@@ -93,15 +95,17 @@ export function Layout() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
               {/* Sidebar Toggle Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2"
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
-              <Link to="/" className="flex items-center gap-2">
+              {!hideSidebar && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="p-2"
+                >
+                  <Menu className="w-5 h-5" />
+                </Button>
+              )}
+              <Link to="/dashboard" className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                   <span className="text-primary-foreground font-bold">H</span>
                 </div>
@@ -114,6 +118,7 @@ export function Layout() {
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex items-center gap-6">
+              <CreditsBadge />
               <Link
                 to="/dashboard"
                 className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
@@ -123,18 +128,7 @@ export function Layout() {
                 }`}
               >
                 <LayoutDashboard className="w-4 h-4" />
-                Dashboard
-              </Link>
-              <Link
-                to="/dashboard/subscription"
-                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                  isActive("/dashboard/subscription")
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-secondary"
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                Subscription
+                View All Products
               </Link>
               <Link
                 to="/dashboard/profile"
@@ -166,6 +160,9 @@ export function Layout() {
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-border">
               <nav className="flex flex-col gap-2">
+                <div onClick={() => setMobileMenuOpen(false)} className="mb-1">
+                  <CreditsBadge />
+                </div>
                 <Link
                   to="/dashboard"
                   onClick={() => setMobileMenuOpen(false)}
@@ -176,19 +173,7 @@ export function Layout() {
                   }`}
                 >
                   <LayoutDashboard className="w-4 h-4" />
-                  Dashboard
-                </Link>
-                <Link
-                  to="/dashboard/subscription"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
-                    isActive("/dashboard/subscription")
-                      ? "bg-primary text-primary-foreground"
-                      : "text-foreground hover:bg-secondary"
-                  }`}
-                >
-                  <CreditCard className="w-4 h-4" />
-                  Subscription
+                  View All Products
                 </Link>
                 <Link
                   to="/dashboard/profile"
@@ -221,74 +206,70 @@ export function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 flex">
-        {/* Sidebar - Search History */}
-        {sidebarOpen && (
+        {/* Sidebar */}
+        {sidebarOpen && !hideSidebar && (
           <div className="w-64 border-r border-border bg-muted/20 flex flex-col h-[calc(100vh-4rem)] sticky top-16">
-            {/* Start New Search Button */}
-            <div className="p-3">
-              <Button 
-                onClick={handleNewSearch}
-                className="w-full justify-start gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Start New Search
-              </Button>
-            </div>
-
-            {/* Searches List */}
-            <div className="flex-1 overflow-y-auto p-2 pt-0">
+            {/* Products List */}
+            <div className="flex-1 overflow-y-auto p-2">
               <div className="px-2 py-2 mb-1">
                 <h2 className="font-semibold text-xs text-muted-foreground uppercase tracking-wide">
-                  Previous Searches
+                  Products
                 </h2>
               </div>
-              {requests.length === 0 ? (
+              {products.length === 0 ? (
                 <div className="px-2 py-8 text-center">
-                  <p className="text-xs text-muted-foreground">
-                    No searches yet
-                  </p>
+                  <p className="text-xs text-muted-foreground">No products yet</p>
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {requests.map((request) => (
-                    <Link
-                      key={request.id}
-                      to={`/dashboard/leads/${request.id}`}
-                      className="block p-3 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-border"
-                      onClick={handleSidebarLinkClick}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <div className="flex items-center gap-1.5 flex-1">
-                          {request.searchType === "direct" ? (
-                            <Mail className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                          ) : (
-                            <MessageSquare className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-                          )}
-                          <h3 className="font-medium text-sm truncate">
-                            {request.productName}
-                          </h3>
-                        </div>
-                        {request.newLeadsCount > 0 && (
-                          <Badge className="bg-primary text-primary-foreground text-xs px-1.5 py-0">
-                            {request.newLeadsCount}
-                          </Badge>
-                        )}
+                  {products.map((product) => {
+                    const resultsPath = `/dashboard/products/${product.id}/results`;
+                    const jobsPath = `/dashboard/products/${product.id}/jobs`;
+                    const isResultsActive = location.pathname === resultsPath;
+                    const isJobsActive = location.pathname === jobsPath;
+                    const isProductActive = product.id === productId && !isResultsActive && !isJobsActive;
+
+                    return (
+                      <div key={product.id}>
+                        <Link
+                          to={`/dashboard/products/${product.id}`}
+                          className={`flex items-center gap-2 p-3 rounded-lg transition-colors border border-transparent ${
+                            isProductActive
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-muted/50 hover:border-border"
+                          }`}
+                          onClick={handleSidebarLinkClick}
+                        >
+                          <Package className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium text-sm truncate">{product.name}</span>
+                        </Link>
+                        <Link
+                          to={resultsPath}
+                          className={`flex items-center gap-2 py-1.5 pl-8 pr-3 rounded-lg transition-colors border border-transparent text-sm ${
+                            isResultsActive
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted/50 hover:border-border hover:text-foreground"
+                          }`}
+                          onClick={handleSidebarLinkClick}
+                        >
+                          <ListChecks className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">Search Results</span>
+                        </Link>
+                        <Link
+                          to={jobsPath}
+                          className={`flex items-center gap-2 py-1.5 pl-8 pr-3 rounded-lg transition-colors border border-transparent text-sm ${
+                            isJobsActive
+                              ? "bg-primary text-primary-foreground"
+                              : "text-muted-foreground hover:bg-muted/50 hover:border-border hover:text-foreground"
+                          }`}
+                          onClick={handleSidebarLinkClick}
+                        >
+                          <CalendarClock className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">Scheduled Searches</span>
+                        </Link>
                       </div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge className={`text-xs ${getStatusColor(request.status)}`}>
-                          <span className="mr-1">{getStatusIcon(request.status)}</span>
-                          <span>{request.status}</span>
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{request.leadsFound} leads</span>
-                        <span>{request.progress}%</span>
-                      </div>
-                      {request.status === "in-progress" && (
-                        <Progress value={request.progress} className="h-1 mt-2" />
-                      )}
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -303,8 +284,14 @@ export function Layout() {
 
       {/* Footer */}
       <footer className="border-t border-border py-6 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          © 2026 helpyoufindthat. All rights reserved.
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-center text-sm text-muted-foreground">
+          <span>© 2026 helpyoufindthat. All rights reserved.</span>
+          <Link to="/terms" className="hover:text-foreground">
+            Terms of Service
+          </Link>
+          <Link to="/privacy" className="hover:text-foreground">
+            Privacy Policy
+          </Link>
         </div>
       </footer>
     </div>

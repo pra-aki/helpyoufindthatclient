@@ -1,7 +1,8 @@
 import { Link } from "react-router";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Search, Zap, Mail, Target, CheckCircle2, ArrowRight } from "lucide-react";
+import { Zap, ArrowRight, Search, CalendarClock, Filter, Download } from "lucide-react";
+import { FORUM_PLATFORMS } from "../lib/constants";
 
 export function Home() {
   return (
@@ -36,16 +37,15 @@ export function Home() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-8">
             <Zap className="w-4 h-4" />
-            Automated Lead Generation
+            Online Lead Search
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6">
-            Find Your Perfect Leads,
-            <br />
-            <span className="text-primary">Effortlessly</span>
+            Find People Already Looking for What You Sell
           </h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10">
-            Stop wasting time on manual lead research. Let our intelligent system discover and 
-            qualify leads for your business while you focus on closing deals.
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
+            We scan {FORUM_PLATFORMS.map((f) => f.label).join(", ")} for conversations where people are
+            asking for something like your product, then rank and summarize every lead so you know exactly
+            which ones are worth your time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/signup">
@@ -67,10 +67,7 @@ export function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">How It Works</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Three simple steps to start generating qualified leads for your business
-            </p>
+            <h2 className="text-4xl font-bold text-foreground">How It Works</h2>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             <Card>
@@ -78,10 +75,10 @@ export function Home() {
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-2xl font-bold text-primary">1</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Enter Product Details</h3>
+                <h3 className="text-xl font-semibold mb-3">Add Your Product</h3>
                 <p className="text-muted-foreground">
-                  Tell us about your product or service. What you sell, who your ideal customer is, 
-                  and what makes your offer unique.
+                  Drop in your website URL and we'll draft a description for you automatically, or write
+                  your own.
                 </p>
               </CardContent>
             </Card>
@@ -90,10 +87,11 @@ export function Home() {
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-2xl font-bold text-primary">2</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">We Search Asynchronously</h3>
+                <h3 className="text-xl font-semibold mb-3">We Search For You</h3>
                 <p className="text-muted-foreground">
-                  Our intelligent system searches the web 24/7, finding and qualifying leads that 
-                  match your criteria while you focus on your business.
+                  Run a search on demand, or schedule it to run daily. We scan{" "}
+                  {FORUM_PLATFORMS.map((f) => f.label).join(", ")} for relevant conversations and score,
+                  summarize, and explain why each one matches.
                 </p>
               </CardContent>
             </Card>
@@ -102,10 +100,10 @@ export function Home() {
                 <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-2xl font-bold text-primary">3</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">Get Notified</h3>
+                <h3 className="text-xl font-semibold mb-3">Review &amp; Reach Out</h3>
                 <p className="text-muted-foreground">
-                  Receive email notifications when qualified leads are found. Review leads in your 
-                  dashboard and start reaching out immediately.
+                  Sort and filter your leads, mark the ones you've responded to, export to CSV, and open
+                  the original thread to reply in your own words.
                 </p>
               </CardContent>
             </Card>
@@ -117,67 +115,47 @@ export function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Why Choose helpyoufindthat?</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Powerful features designed to help you grow your business faster
-            </p>
+            <h2 className="text-4xl font-bold text-foreground">Built for Finding Leads, Not Busywork</h2>
           </div>
-          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Search className="w-5 h-5 text-primary" />
-                </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Search className="w-6 h-6 text-primary" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Automated Lead Discovery</h3>
-                <p className="text-muted-foreground">
-                  Our system works around the clock, continuously searching for new leads that match 
-                  your ideal customer profile.
-                </p>
-              </div>
+              <h3 className="text-lg font-semibold mb-2">Relevance-Scored Leads</h3>
+              <p className="text-muted-foreground text-sm">
+                Every lead gets a match score, a summary, and a plain-English reason it's relevant — no
+                digging through threads to find out.
+              </p>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-primary" />
-                </div>
+            <div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <CalendarClock className="w-6 h-6 text-primary" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Email Notifications</h3>
-                <p className="text-muted-foreground">
-                  Get instant alerts when new qualified leads are discovered, so you can reach out 
-                  while they're hot.
-                </p>
-              </div>
+              <h3 className="text-lg font-semibold mb-2">Daily Search Jobs</h3>
+              <p className="text-muted-foreground text-sm">
+                Schedule a search to run automatically every day and get new leads emailed to you as
+                they're found.
+              </p>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <Target className="w-5 h-5 text-primary" />
-                </div>
+            <div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Filter className="w-6 h-6 text-primary" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Targeted Search</h3>
-                <p className="text-muted-foreground">
-                  Define your ideal customer criteria and let our AI find leads that perfectly match 
-                  your requirements.
-                </p>
-              </div>
+              <h3 className="text-lg font-semibold mb-2">Sort, Filter &amp; Track</h3>
+              <p className="text-muted-foreground text-sm">
+                Filter by forum, date, or response status, and keep track of which leads you've already
+                followed up with.
+              </p>
             </div>
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-primary" />
-                </div>
+            <div>
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Download className="w-6 h-6 text-primary" />
               </div>
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Easy Management</h3>
-                <p className="text-muted-foreground">
-                  Track all your lead requests in one place with progress bars, detailed views, and 
-                  bulk contact options.
-                </p>
-              </div>
+              <h3 className="text-lg font-semibold mb-2">Export Anytime</h3>
+              <p className="text-muted-foreground text-sm">
+                Download your full lead list as a CSV whenever you want to work with it outside the app.
+              </p>
             </div>
           </div>
         </div>
@@ -190,11 +168,11 @@ export function Home() {
             Ready to Generate More Leads?
           </h2>
           <p className="text-xl text-muted-foreground mb-10">
-            Join businesses that are growing faster with automated lead generation
+            Join businesses finding warm leads in conversations that are already happening
           </p>
           <Link to="/signup">
             <Button size="lg" className="text-lg px-8">
-              Start Your Free Trial
+              Get 100 Free Beta Credits
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </Link>
@@ -219,15 +197,13 @@ export function Home() {
                 </div>
               </div>
               <p className="text-muted-foreground mb-4">
-                Automated lead generation that works while you sleep. Find qualified leads for your 
-                business effortlessly.
+                Find people looking for solutions or services you provide.
               </p>
             </div>
             <div>
               <h4 className="font-semibold mb-4">Product</h4>
               <ul className="space-y-2 text-muted-foreground">
                 <li><Link to="/signup" className="hover:text-foreground">Get Started</Link></li>
-                <li><Link to="/subscription" className="hover:text-foreground">Pricing</Link></li>
               </ul>
             </div>
             <div>
@@ -235,6 +211,8 @@ export function Home() {
               <ul className="space-y-2 text-muted-foreground">
                 <li><Link to="/login" className="hover:text-foreground">Sign In</Link></li>
                 <li><Link to="/signup" className="hover:text-foreground">Sign Up</Link></li>
+                <li><Link to="/terms" className="hover:text-foreground">Terms of Service</Link></li>
+                <li><Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link></li>
               </ul>
             </div>
           </div>

@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router";
-import { isAuthenticated, login } from "../lib/auth";
+import { isAuthenticated, signUp } from "../lib/auth";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Checkbox } from "../components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Loader2, MailCheck } from "lucide-react";
 import { toast } from "sonner";
 
 export function SignUp() {
@@ -13,15 +15,22 @@ export function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      navigate("/dashboard");
-    }
+    let cancelled = false;
+    isAuthenticated().then((authed) => {
+      if (!cancelled && authed) navigate("/dashboard");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -40,11 +49,52 @@ export function SignUp() {
       return;
     }
 
-    // In demo mode, we'll just log them in
-    login(email, password);
-    toast.success("Account created successfully!");
-    navigate("/dashboard");
+    if (!agreedToTerms) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await signUp(email, password, name);
+      if (result.needsEmailConfirmation) {
+        setNeedsEmailConfirmation(true);
+      } else {
+        toast.success("Account created successfully!");
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create account");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  if (needsEmailConfirmation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="w-full max-w-md">
+          <Card>
+            <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-4">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <MailCheck className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-foreground mb-2">Check your email</h2>
+                <p className="text-muted-foreground">
+                  We sent a confirmation link to <span className="text-foreground font-medium">{email}</span>.
+                  Click it to activate your account, then sign in.
+                </p>
+              </div>
+              <Link to="/login">
+                <Button variant="outline">Back to Sign In</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -119,14 +169,43 @@ export function SignUp() {
                 />
               </div>
 
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="agreeTerms"
+                  checked={agreedToTerms}
+                  onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                {/* Plain text, not a <Label htmlFor>, so clicking the embedded
+                    links doesn't also toggle the checkbox via label-click behavior. */}
+                <p className="text-sm text-muted-foreground leading-snug">
+                  By creating an account, you agree to our{" "}
+                  <Link to="/terms" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  (including our Beta Terms) and{" "}
+                  <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    Privacy Policy
+                  </Link>
+                  . You will receive 100 complimentary Beta testing credits upon registration.
+                </p>
+              </div>
+
               {error && (
                 <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
                   {error}
                 </div>
               )}
 
-              <Button type="submit" className="w-full">
-                Create Account
+              <Button type="submit" className="w-full" disabled={isSubmitting || !agreedToTerms}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Create Account"
+                )}
               </Button>
 
               <div className="text-center">
@@ -137,10 +216,6 @@ export function SignUp() {
                   </Link>
                 </p>
               </div>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Demo: Enter any details to create an account
-              </p>
             </form>
           </CardContent>
         </Card>

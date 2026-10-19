@@ -1,9 +1,13 @@
 export { Home } from "./Home";
+export { Privacy } from "./Privacy";
+export { Terms } from "./Terms";
 export { Login } from "./Login";
 export { SignUp } from "./SignUp";
 export { Dashboard } from "./Dashboard";
-export { LeadDetails } from "./LeadDetails";
-export { Subscription } from "./Subscription";
-export { Payment } from "./Payment";
+export { AddProduct } from "./AddProduct";
+export { ProductDashboard } from "./ProductDashboard";
+export { ProductSearchResults } from "./ProductSearchResults";
+export { ProductJobs } from "./ProductJobs";
+export { JobLeads } from "./JobLeads";
 export { Profile } from "./Profile";
 export { NotFound } from "./NotFound";

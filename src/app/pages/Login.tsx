@@ -5,20 +5,26 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+import { Loader2 } from "lucide-react";
 
 export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated()) {
-      navigate("/dashboard");
-    }
+    let cancelled = false;
+    isAuthenticated().then((authed) => {
+      if (!cancelled && authed) navigate("/dashboard");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -27,11 +33,14 @@ export function Login() {
       return;
     }
 
-    const user = login(email, password);
-    if (user) {
+    setIsSubmitting(true);
+    try {
+      await login(email, password);
       navigate("/dashboard");
-    } else {
-      setError("Invalid credentials");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid credentials");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -90,8 +99,15 @@ export function Login() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full">
-                Sign In
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </Button>
 
               <div className="text-center">
@@ -102,10 +118,6 @@ export function Login() {
                   </Link>
                 </p>
               </div>
-
-              <p className="text-xs text-center text-muted-foreground">
-                Demo: Enter any email and password to login
-              </p>
             </form>
           </CardContent>
         </Card>

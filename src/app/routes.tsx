@@ -1,11 +1,19 @@
 import { createBrowserRouter } from "react-router";
-import { Home, Login, SignUp, Dashboard, LeadDetails, Subscription, Payment, Profile, NotFound } from "./pages";
+import { Home, Privacy, Terms, Login, SignUp, Dashboard, AddProduct, ProductDashboard, ProductSearchResults, ProductJobs, JobLeads, Profile, NotFound } from "./pages";
 import { Layout } from "./components/Layout";
 
 export const router = createBrowserRouter([
   {
     path: "/",
     Component: Home,
+  },
+  {
+    path: "/privacy",
+    Component: Privacy,
+  },
+  {
+    path: "/terms",
+    Component: Terms,
   },
   {
     path: "/login",
@@ -20,9 +28,11 @@ export const router = createBrowserRouter([
     Component: Layout,
     children: [
       { index: true, Component: Dashboard },
-      { path: "leads/:requestId", Component: LeadDetails },
-      { path: "subscription", Component: Subscription },
-      { path: "payment", Component: Payment },
+      { path: "products/new", Component: AddProduct },
+      { path: "products/:productId", Component: ProductDashboard },
+      { path: "products/:productId/results", Component: ProductSearchResults },
+      { path: "products/:productId/jobs", Component: ProductJobs },
+      { path: "products/:productId/jobs/:jobId/leads", Component: JobLeads },
       { path: "profile", Component: Profile },
     ],
   },

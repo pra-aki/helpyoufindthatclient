@@ -1,41 +1,194 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Separator } from "../components/ui/separator";
-import { Badge } from "../components/ui/badge";
-import { getCurrentUser } from "../lib/auth";
-import { User, Mail, Bell, Shield } from "lucide-react";
-import { Switch } from "../components/ui/switch";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import { getCurrentUser, changePassword, User as AuthUser } from "../lib/auth";
+import {
+  listProducts,
+  listProductResults,
+  listJobs,
+  listJobRuns,
+  listCredits,
+  ApiCreditTransaction,
+  ApiError,
+} from "../lib/api";
+import { useCredits } from "../lib/credits-context";
+import { downloadJson } from "../lib/download";
+import { User, Shield, Download, Loader2, Coins } from "lucide-react";
 import { toast } from "sonner";
 
+const TRANSACTIONS_PAGE_SIZE = 20;
+
+const TRANSACTION_REASON_LABEL: Record<ApiCreditTransaction["reason"], string> = {
+  signup_grant: "Signup bonus",
+  search: "Lead search",
+  job_run: "Scheduled search run",
+  refund: "Refund",
+};
+
+const formatTransactionDate = (iso: string) =>
+  new Date(iso).toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+/** Pages through a paginated endpoint until every item is collected. */
+async function fetchAllPages<T>(
+  fetchPage: (offset: number) => Promise<{ items: T[]; total: number }>,
+  pageSize: number
+): Promise<T[]> {
+  const all: T[] = [];
+  let offset = 0;
+  // Safety cap so a backend bug (e.g. total never catching up) can't loop forever.
+  for (let i = 0; i < 1000; i++) {
+    const { items, total } = await fetchPage(offset);
+    all.push(...items);
+    offset += items.length;
+    if (items.length === 0 || all.length >= total) break;
+    if (items.length < pageSize) break; // short page with no more reported — stop regardless
+  }
+  return all;
+}
+
 export function Profile() {
-  const user = getCurrentUser();
-  const [name, setName] = useState(user?.name || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [weeklyReports, setWeeklyReports] = useState(true);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const { balance, pricing } = useCredits();
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Credits ledger
+  const [transactions, setTransactions] = useState<ApiCreditTransaction[] | null>(null);
+  const [transactionsTotal, setTransactionsTotal] = useState(0);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+
+  const loadTransactions = useCallback((offset: number) => {
+    setIsLoadingTransactions(true);
+    listCredits({ limit: TRANSACTIONS_PAGE_SIZE, offset })
+      .then((page) => {
+        setTransactions((prev) => (offset === 0 ? page.transactions : [...(prev ?? []), ...page.transactions]));
+        setTransactionsTotal(page.total);
+      })
+      .catch((err) => {
+        const message = err instanceof ApiError || err instanceof Error ? err.message : "Failed to load credit history";
+        toast.error(message);
+        setTransactions((prev) => prev ?? []);
+      })
+      .finally(() => setIsLoadingTransactions(false));
+  }, []);
+
+  useEffect(() => {
+    loadTransactions(0);
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser().then((fetched) => {
+      if (cancelled || !fetched) return;
+      setUser(fetched);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Change password
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+
+  const resetPasswordForm = () => {
+    setIsChangingPassword(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Profile updated successfully");
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error("New password must be at least 6 characters");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords don't match");
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+      toast.success("Password updated");
+      resetPasswordForm();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update password");
+    } finally {
+      setIsSavingPassword(false);
+    }
   };
 
-  const handleSaveNotifications = () => {
-    toast.success("Notification preferences updated");
-  };
+  // Download my data: a full account backup as one JSON file.
+  const [isExporting, setIsExporting] = useState(false);
 
-  const getPlanBadgeColor = (plan: string) => {
-    switch (plan) {
-      case "free":
-        return "bg-muted text-muted-foreground";
-      case "pro":
-        return "bg-primary text-primary-foreground";
-      case "enterprise":
-        return "bg-accent text-accent-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
+  const handleDownloadData = async () => {
+    if (!user) return;
+    setIsExporting(true);
+    try {
+      const products = await listProducts();
+
+      const results = await Promise.all(
+        products.map((product) =>
+          fetchAllPages(
+            (offset) =>
+              listProductResults(product.id, { limit: 1000, offset }).then((page) => ({
+                items: page.results,
+                total: page.total,
+              })),
+            1000
+          ).then((leads) => ({ productId: product.id, leads }))
+        )
+      );
+
+      const jobs = await listJobs();
+
+      const runs = await Promise.all(
+        jobs.map((job) =>
+          fetchAllPages(
+            (offset) =>
+              listJobRuns(job.id, { limit: 365, offset }).then((page) => ({ items: page.runs, total: page.total })),
+            365
+          ).then((jobRuns) => ({ jobId: job.id, runs: jobRuns }))
+        )
+      );
+
+      const firstCreditsPage = await listCredits({ limit: 100, offset: 0 });
+      const laterTransactions =
+        firstCreditsPage.total > firstCreditsPage.transactions.length
+          ? await fetchAllPages(
+              (offset) => listCredits({ limit: 100, offset }).then((page) => ({ items: page.transactions, total: page.total })),
+              100
+            )
+          : firstCreditsPage.transactions;
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        account: { id: user.id, email: user.email, name: user.name },
+        products,
+        leadsByProduct: Object.fromEntries(results.map((r) => [r.productId, r.leads])),
+        jobs,
+        runsByJob: Object.fromEntries(runs.map((r) => [r.jobId, r.runs])),
+        credits: { balance: firstCreditsPage.balance, pricing: firstCreditsPage.pricing, transactions: laterTransactions },
+      };
+
+      downloadJson(`helpyoufindthat-data-${new Date().toISOString().slice(0, 10)}.json`, exportData);
+      toast.success("Downloaded your data");
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error ? err.message : "Failed to export your data";
+      toast.error(message);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -53,86 +206,87 @@ export function Profile() {
               <User className="w-5 h-5" />
               <CardTitle>Account Information</CardTitle>
             </div>
-            <CardDescription>Update your personal information</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-input-background"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-input-background"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Current Plan</Label>
-                <div>
-                  <Badge className={getPlanBadgeColor(user.plan)}>
-                    {user.plan.toUpperCase()}
-                  </Badge>
-                </div>
-              </div>
-
-              <Button type="submit">Save Changes</Button>
-            </form>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <p className="text-sm text-foreground">{user.email}</p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Email Notifications */}
+        {/* Credits */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              <CardTitle>Notifications</CardTitle>
+              <Coins className="w-5 h-5" />
+              <CardTitle>Credits</CardTitle>
             </div>
-            <CardDescription>Manage your notification preferences</CardDescription>
+            <CardDescription>
+              {pricing
+                ? `Every ${pricing.leadsPerCredit} leads searched costs 1 credit per forum — new accounts start with ${pricing.signupCredits}.`
+                : "Spent on lead searches and scheduled search runs."}
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="email-notifications">Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">
-                  Receive emails when new leads are found
-                </p>
-              </div>
-              <Switch
-                id="email-notifications"
-                checked={emailNotifications}
-                onCheckedChange={setEmailNotifications}
-              />
+          <CardContent>
+            <div className="flex items-baseline gap-2 mb-6">
+              <span className="text-3xl font-bold text-foreground">{balance ?? "—"}</span>
+              <span className="text-sm text-muted-foreground">credits remaining</span>
             </div>
 
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="weekly-reports">Weekly Reports</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get a summary of your lead generation activity
-                </p>
+            {transactions === null ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
               </div>
-              <Switch
-                id="weekly-reports"
-                checked={weeklyReports}
-                onCheckedChange={setWeeklyReports}
-              />
-            </div>
-
-            <Button onClick={handleSaveNotifications}>Save Preferences</Button>
+            ) : transactions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">No credit activity yet.</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Change</TableHead>
+                        <TableHead>Balance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((tx) => (
+                        <TableRow key={tx.id}>
+                          <TableCell>{formatTransactionDate(tx.createdAt)}</TableCell>
+                          <TableCell>{TRANSACTION_REASON_LABEL[tx.reason] ?? tx.reason}</TableCell>
+                          <TableCell className={tx.delta >= 0 ? "text-primary" : "text-destructive"}>
+                            {tx.delta >= 0 ? `+${tx.delta}` : tx.delta}
+                          </TableCell>
+                          <TableCell>{tx.balanceAfter}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                {transactions.length < transactionsTotal && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loadTransactions(transactions.length)}
+                      disabled={isLoadingTransactions}
+                    >
+                      {isLoadingTransactions ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        `Load more (${transactionsTotal - transactions.length} remaining)`
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -148,52 +302,100 @@ export function Profile() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Password</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Change your password to keep your account secure
-              </p>
-              <Button variant="outline">Change Password</Button>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-2">
-              <Label>Two-Factor Authentication</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Add an extra layer of security to your account
-              </p>
-              <Button variant="outline">Enable 2FA</Button>
+              {!isChangingPassword ? (
+                <>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Change your password to keep your account secure
+                  </p>
+                  <Button variant="outline" onClick={() => setIsChangingPassword(true)}>
+                    Change Password
+                  </Button>
+                </>
+              ) : (
+                <form onSubmit={handleChangePassword} className="space-y-3 max-w-sm pt-1">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="bg-input-background"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="bg-input-background"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="bg-input-background"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <Button type="submit" disabled={isSavingPassword}>
+                      {isSavingPassword ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Password"
+                      )}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={resetPasswordForm} disabled={isSavingPassword}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* API Access */}
+        {/* Your Data */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Mail className="w-5 h-5" />
-              <CardTitle>API Access</CardTitle>
+              <Download className="w-5 h-5" />
+              <CardTitle>Your Data</CardTitle>
             </div>
-            <CardDescription>Manage your API keys and integrations</CardDescription>
+            <CardDescription>Download a complete copy of your account's data</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {user.plan === "enterprise" ? (
-              <>
-                <div className="bg-secondary p-4 rounded-lg">
-                  <p className="text-sm text-foreground mb-2">Your API Key:</p>
-                  <code className="text-xs bg-background px-3 py-2 rounded block overflow-x-auto">
-                    bf_sk_live_1234567890abcdefghijklmnopqrstuvwxyz
-                  </code>
-                </div>
-                <Button variant="outline">Generate New Key</Button>
-              </>
-            ) : (
-              <div className="text-sm text-muted-foreground">
-                API access is available on the Enterprise plan.{" "}
-                <a href="/subscription" className="text-primary hover:underline">
-                  Upgrade now
-                </a>
-              </div>
-            )}
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground mb-2">
+                Includes your products, every lead found for them, your scheduled searches and their run history,
+                and your credits ledger — as one JSON file.
+              </p>
+              <Button variant="outline" onClick={handleDownloadData} disabled={isExporting}>
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Preparing download...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Download My Data
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
