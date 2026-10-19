@@ -159,16 +159,16 @@ export function LeadResultRow({
         {onToggleResponded && (
           <Button
             type="button"
-            variant="ghost"
-            size="icon"
+            variant={isResponded ? "secondary" : "outline"}
+            size="sm"
             onClick={() => onToggleResponded(result.id, !isResponded)}
-            className={`flex-shrink-0 mt-1.5 h-7 w-7 ${
-              isResponded ? "text-primary hover:text-muted-foreground" : "text-muted-foreground hover:text-primary"
-            }`}
+            className={`flex-shrink-0 mt-1.5 h-7 px-2 gap-1 text-xs ${isResponded ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
             aria-label={isResponded ? "Mark as not responded" : "Mark as responded"}
-            title={isResponded ? "Mark as not responded" : "Mark as responded"}
+            aria-pressed={isResponded}
+            title={isResponded ? "Click to mark as not responded" : "Mark this lead as replied to"}
           >
             {isResponded ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
+            <span className="hidden sm:inline">{isResponded ? "Responded" : "Mark responded"}</span>
           </Button>
         )}
 
