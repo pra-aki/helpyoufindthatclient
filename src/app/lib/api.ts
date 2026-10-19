@@ -360,6 +360,33 @@ export async function listJobLeads(
   );
 }
 
+// ---- Error reports ----
+
+export type LeadReportReason = "not_relevant" | "wrong_forum" | "duplicate" | "other";
+
+export interface ErrorReportInput {
+  // What the user says happened (required, up to 2000 characters).
+  message: string;
+  // Where in the app (up to 500 characters).
+  page?: string;
+  // The error message the app showed (up to 2000 characters).
+  error?: string;
+  // Anything else, as a JSON object (up to 8000 characters serialised).
+  details?: Record<string, unknown>;
+}
+
+/**
+ * Sends a report to the owner. Used for both the general "Report a Problem" form and the
+ * per-lead flag, which puts the lead's ids in `details`.
+ * Backend: POST /api/error-reports -> 201 { report: { id, createdAt } }; 5 per user per minute.
+ */
+export async function submitErrorReport(input: ErrorReportInput) {
+  return apiFetch<{ report: { id: string; createdAt: string } }>("/api/error-reports", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 // ---- Credits ----
 
 export interface ApiCreditTransaction {

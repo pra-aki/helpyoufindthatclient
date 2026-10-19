@@ -1,9 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocation } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { Textarea } from "../components/ui/textarea";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../components/ui/dialog";
 import { getCurrentUser, changePassword, User as AuthUser } from "../lib/auth";
 import {
   listProducts,
@@ -11,12 +21,13 @@ import {
   listJobs,
   listJobRuns,
   listCredits,
+  submitErrorReport,
   ApiCreditTransaction,
   ApiError,
 } from "../lib/api";
 import { useCredits } from "../lib/credits-context";
 import { downloadJson } from "../lib/download";
-import { User, Shield, Download, Loader2, Coins } from "lucide-react";
+import { User, Shield, Download, Loader2, Coins, MessageSquareWarning } from "lucide-react";
 import { toast } from "sonner";
 
 const TRANSACTIONS_PAGE_SIZE = 20;
@@ -50,8 +61,33 @@ async function fetchAllPages<T>(
 }
 
 export function Profile() {
+  const location = useLocation();
   const [user, setUser] = useState<AuthUser | null>(null);
   const { balance, pricing } = useCredits();
+
+  // General "report a problem" feedback, not tied to a specific lead.
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
+
+  const handleSubmitFeedback = async () => {
+    if (!feedbackMessage.trim()) {
+      toast.error("Please describe the problem first");
+      return;
+    }
+    setIsSubmittingFeedback(true);
+    try {
+      await submitErrorReport({ message: feedbackMessage.trim(), page: location.pathname });
+      toast.success("Thanks — we've got your report.");
+      setFeedbackMessage("");
+      setIsFeedbackOpen(false);
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error ? err.message : "Failed to send your report";
+      toast.error(message);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
 
   // Credits ledger
   const [transactions, setTransactions] = useState<ApiCreditTransaction[] | null>(null);
@@ -396,6 +432,60 @@ export function Profile() {
                 )}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Help & Feedback */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <MessageSquareWarning className="w-5 h-5" />
+              <CardTitle>Help &amp; Feedback</CardTitle>
+            </div>
+            <CardDescription>Found a bug or something not working right? Let us know.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => setIsFeedbackOpen(true)}>
+              Report a Problem
+            </Button>
+            <Dialog open={isFeedbackOpen} onOpenChange={setIsFeedbackOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Report a Problem</DialogTitle>
+                  <DialogDescription>
+                    Tell us what happened. For an issue with a specific lead's quality, use the flag icon on that
+                    lead instead — it's more useful to us with that context attached.
+                  </DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  placeholder="What went wrong?"
+                  value={feedbackMessage}
+                  onChange={(e) => setFeedbackMessage(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsFeedbackOpen(false)}
+                    disabled={isSubmittingFeedback}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={handleSubmitFeedback} disabled={isSubmittingFeedback}>
+                    {isSubmittingFeedback ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 
