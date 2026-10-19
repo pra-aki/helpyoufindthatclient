@@ -149,6 +149,11 @@ export interface ApiResult {
   searchDate: string;
   // Null until the user marks this lead as responded to; then the time they did.
   respondedAt: string | null;
+  // The user's answer to "Is this lead useful?": true, false, or null if unrated.
+  useful: boolean | null;
+  // Optional note left with the rating.
+  feedbackNote: string | null;
+  ratedAt: string | null;
   // The scheduled job whose run last stored this lead, or null if only manual
   // searches found it.
   jobId: string | null;
@@ -170,6 +175,18 @@ export async function setResultResponded(productId: string, resultId: string, re
   const { result } = await apiFetch<{ productId: string; result: ApiResult }>(
     `/api/products/${encodeURIComponent(productId)}/results/${encodeURIComponent(resultId)}`,
     { method: "PATCH", body: JSON.stringify({ responded }) }
+  );
+  return result;
+}
+
+/**
+ * Rates a lead as useful (true) or not (false), or clears the rating (null). A rating replaces the
+ * previous one, note included, so rating again without a note clears the old note.
+ */
+export async function rateResult(productId: string, resultId: string, useful: boolean | null, note?: string) {
+  const { result } = await apiFetch<{ productId: string; result: ApiResult }>(
+    `/api/products/${encodeURIComponent(productId)}/results/${encodeURIComponent(resultId)}`,
+    { method: "PATCH", body: JSON.stringify(note ? { useful, note } : { useful }) }
   );
   return result;
 }

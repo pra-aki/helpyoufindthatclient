@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ApiResult, ApiProduct, ApiError, submitErrorReport, LeadReportReason } from "../lib/api";
+import { ApiResult, ApiProduct, ApiError, submitErrorReport, rateResult, LeadReportReason } from "../lib/api";
 import { FORUM_PLATFORMS, LEAD_REPORT_REASONS } from "../lib/constants";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
@@ -31,7 +31,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "./ui/dialog";
-import { Trash2, ChevronRight, CheckCircle2, Circle, Flag, Loader2 } from "lucide-react";
+import { Trash2, ChevronRight, CheckCircle2, Circle, Flag, Loader2, ThumbsUp, ThumbsDown } from "lucide-react";
 import { toast } from "sonner";
 
 const getPlatformIcon = (platform: string) => {
@@ -81,6 +81,38 @@ export function LeadResultRow({
 
   const handleOpenThread = () => {
     window.open(result.link, "_blank", "noopener,noreferrer");
+  };
+
+  // "Is this lead useful?" thumbs. Kept locally so callers need no changes.
+  const [useful, setUseful] = useState<boolean | null>(result.useful ?? null);
+  const [isRating, setIsRating] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const [ratingNote, setRatingNote] = useState("");
+
+  const saveRating = async (next: boolean | null, note?: string) => {
+    setIsRating(true);
+    try {
+      const updated = await rateResult(result.productId, result.id, next, note);
+      setUseful(updated.useful ?? null);
+      setIsNoteOpen(false);
+      setRatingNote("");
+      if (next !== null) toast.success("Thanks for the feedback!");
+    } catch (err) {
+      const message = err instanceof ApiError || err instanceof Error ? err.message : "Failed to save your rating";
+      toast.error(message);
+    } finally {
+      setIsRating(false);
+    }
+  };
+
+  const handleThumbsUp = () => saveRating(useful === true ? null : true);
+  const handleThumbsDown = () => {
+    if (useful === false) {
+      saveRating(null);
+    } else {
+      setRatingNote("");
+      setIsNoteOpen(true);
+    }
   };
 
   // Report a quality issue with this lead (e.g. not relevant, wrong forum).
@@ -188,6 +220,67 @@ export function LeadResultRow({
             {isResponded ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Circle className="w-3.5 h-3.5" />}
           </Button>
         )}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={handleThumbsUp}
+          disabled={isRating}
+          className={`flex-shrink-0 mt-1.5 h-7 w-7 ${useful === true ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+          aria-label="Mark lead as useful"
+          aria-pressed={useful === true}
+          title="Useful"
+        >
+          <ThumbsUp className="w-3.5 h-3.5" fill={useful === true ? "currentColor" : "none"} />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={handleThumbsDown}
+          disabled={isRating}
+          className={`flex-shrink-0 mt-1.5 h-7 w-7 ${useful === false ? "text-destructive" : "text-muted-foreground hover:text-foreground"}`}
+          aria-label="Mark lead as not useful"
+          aria-pressed={useful === false}
+          title="Not useful"
+        >
+          <ThumbsDown className="w-3.5 h-3.5" fill={useful === false ? "currentColor" : "none"} />
+        </Button>
+
+        <Dialog open={isNoteOpen} onOpenChange={setIsNoteOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Not a useful lead?</DialogTitle>
+              <DialogDescription className="break-words">
+                "{result.title || result.link}" — what was wrong with it? (optional)
+              </DialogDescription>
+            </DialogHeader>
+            <Textarea
+              placeholder="e.g. They are selling a CRM, not looking for one"
+              value={ratingNote}
+              onChange={(e) => setRatingNote(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              className="resize-none"
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsNoteOpen(false)} disabled={isRating}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={() => saveRating(false, ratingNote.trim() || undefined)} disabled={isRating}>
+                {isRating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Submit"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={isReportOpen} onOpenChange={setIsReportOpen}>
           <DialogTrigger asChild>
