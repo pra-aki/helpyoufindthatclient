@@ -70,8 +70,8 @@ export function Privacy() {
             <SubHeading>Product and search content you provide</SubHeading>
             <p>
               The product or service names, website URLs, and descriptions you enter; the forums and date ranges
-              you choose to search; and the settings for any scheduled daily search ("job") you create, including
-              the notification email address (which defaults to your account email unless you change it).
+              you choose to search; and the settings for any scheduled daily search ("job") you create. Job emails
+              always go to your account email address, and you can turn them off in your profile settings.
             </p>
 
             <SubHeading>Lead data we retrieve on your behalf</SubHeading>
@@ -173,7 +173,7 @@ export function Privacy() {
               </li>
               <li>
                 <strong className="text-foreground">Resend</strong> — sends the scheduled-search notification
-                emails you've set up, to the email address you configured for that job
+                emails for the searches you've set up, to your account email address (unless you turn them off)
               </li>
             </ul>
           </Section>

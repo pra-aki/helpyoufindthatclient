@@ -293,7 +293,6 @@ export interface JobInput {
   endDate: string;
   threads?: number; // default 10, max 50
   minScore?: number; // default 0.8, 0-1
-  email?: string; // defaults to the caller's account email
 }
 
 /** Schedules a daily search. Nothing is searched until the runner's next pass. */
@@ -398,6 +397,35 @@ export async function submitErrorReport(input: ErrorReportInput) {
   return apiFetch<{ report: { id: string; createdAt: string } }>("/api/error-reports", {
     method: "POST",
     body: JSON.stringify(input),
+  });
+}
+
+// ---- Settings & account ----
+
+export interface UserSettings {
+  // Whether scheduled jobs email new leads. Off: jobs still run and store leads.
+  jobLeadEmails: boolean;
+}
+
+export async function getSettings() {
+  const { settings } = await apiFetch<{ settings: UserSettings }>("/api/settings");
+  return settings;
+}
+
+/** Changes the given settings and returns the saved ones. */
+export async function updateSettings(changes: Partial<UserSettings>) {
+  const { settings } = await apiFetch<{ settings: UserSettings }>("/api/settings", {
+    method: "PATCH",
+    body: JSON.stringify(changes),
+  });
+  return settings;
+}
+
+/** Permanently deletes the signed-in user. The caller should sign out locally afterwards. */
+export async function deleteAccount() {
+  return apiFetch<{ deleted: true }>("/api/account", {
+    method: "DELETE",
+    body: JSON.stringify({ confirm: true }),
   });
 }
 

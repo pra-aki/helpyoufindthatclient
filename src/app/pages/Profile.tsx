@@ -1,10 +1,22 @@
 import { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
+import { Switch } from "../components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "../components/ui/alert-dialog";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table";
 import {
   Dialog,
@@ -14,7 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../components/ui/dialog";
-import { getCurrentUser, changePassword, User as AuthUser } from "../lib/auth";
+import { getCurrentUser, changePassword, logout, User as AuthUser } from "../lib/auth";
 import {
   listProducts,
   listProductResults,
@@ -22,12 +34,15 @@ import {
   listJobRuns,
   listCredits,
   submitErrorReport,
+  getSettings,
+  updateSettings,
+  deleteAccount,
   ApiCreditTransaction,
   ApiError,
 } from "../lib/api";
 import { useCredits } from "../lib/credits-context";
 import { downloadJson } from "../lib/download";
-import { User, Shield, Download, Loader2, Coins, MessageSquareWarning } from "lucide-react";
+import { User, Shield, Download, Loader2, Coins, MessageSquareWarning, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 const TRANSACTIONS_PAGE_SIZE = 20;
@@ -62,8 +77,51 @@ async function fetchAllPages<T>(
 
 export function Profile() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(null);
   const { balance, pricing } = useCredits();
+
+  // Email notifications: whether scheduled jobs email new leads.
+  const [jobLeadEmails, setJobLeadEmails] = useState<boolean | null>(null);
+  const [isSavingEmails, setIsSavingEmails] = useState(false);
+
+  useEffect(() => {
+    getSettings()
+      .then((settings) => setJobLeadEmails(settings.jobLeadEmails))
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Failed to load your settings"));
+  }, []);
+
+  const handleToggleJobEmails = async (enabled: boolean) => {
+    const previous = jobLeadEmails;
+    setJobLeadEmails(enabled);
+    setIsSavingEmails(true);
+    try {
+      const saved = await updateSettings({ jobLeadEmails: enabled });
+      setJobLeadEmails(saved.jobLeadEmails);
+      toast.success(saved.jobLeadEmails ? "Lead emails turned on" : "Lead emails turned off");
+    } catch (err) {
+      setJobLeadEmails(previous);
+      toast.error(err instanceof Error ? err.message : "Failed to save your setting");
+    } finally {
+      setIsSavingEmails(false);
+    }
+  };
+
+  // Account deletion.
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount();
+      await logout();
+      toast.success("Your account has been deleted");
+      navigate("/login");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete your account");
+      setIsDeletingAccount(false);
+    }
+  };
 
   // General "report a problem" feedback, not tied to a specific lead.
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
@@ -435,6 +493,35 @@ export function Profile() {
           </CardContent>
         </Card>
 
+        {/* Email notifications */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              <CardTitle>Email Notifications</CardTitle>
+            </div>
+            <CardDescription>Choose which emails we send to {user.email}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="job-lead-emails">New lead emails</Label>
+                <p className="text-sm text-muted-foreground">
+                  Email me the new leads found by my scheduled searches. If off, searches still run and leads are
+                  still saved to your dashboard.
+                </p>
+              </div>
+              <Switch
+                id="job-lead-emails"
+                checked={jobLeadEmails ?? true}
+                onCheckedChange={handleToggleJobEmails}
+                disabled={jobLeadEmails === null || isSavingEmails}
+                aria-label="Email me new leads from scheduled searches"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Help & Feedback */}
         <Card>
           <CardHeader>
@@ -501,9 +588,42 @@ export function Profile() {
               <p className="text-sm text-muted-foreground mb-2">
                 Permanently delete your account and all associated data
               </p>
-              <Button variant="destructive" onClick={() => toast.error("Account deletion is disabled in demo mode")}>
-                Delete Account
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" disabled={isDeletingAccount}>
+                    Delete Account
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This permanently deletes your products, leads, scheduled searches, credits and history. It
+                      can't be undone. We keep only the record that you accepted our Terms of Service.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeletingAccount}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteAccount();
+                      }}
+                      disabled={isDeletingAccount}
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                    >
+                      {isDeletingAccount ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        "Delete my account"
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
         </Card>
