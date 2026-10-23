@@ -6,6 +6,7 @@ import { Label } from "../components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Checkbox } from "../components/ui/checkbox";
 import { Textarea } from "../components/ui/textarea";
+import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -675,6 +676,18 @@ export function ProductDashboard() {
                       New leads are stored and emailed to you.
                     </p>
                   </div>
+
+                  <Alert>
+                    <Info />
+                    <AlertDescription>
+                      You'll get an email at your account address when this job finds new leads. You can turn these
+                      emails off anytime in{" "}
+                      <Link to="/dashboard/profile" className="underline underline-offset-2 text-foreground">
+                        your profile settings
+                      </Link>
+                      . Searches still run and leads are still saved.
+                    </AlertDescription>
+                  </Alert>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
