@@ -39,10 +39,12 @@ import {
   Sparkles,
   CalendarClock,
   ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
-const RESULTS_BOX_LIMIT = 20;
+// Just a preview; the full, filterable list lives on the results page.
+const RESULTS_BOX_LIMIT = 3;
 // Fetch every result (the backend's max page size) so the header stats count across all of them.
 const STATS_FETCH_LIMIT = 1000;
 const STAT_CHIP_CLASS =
@@ -61,6 +63,7 @@ export function ProductDashboard() {
   const [jobs, setJobs] = useState<ApiJob[] | null>(null);
 
   // Editing the product's own name/website/description; its id never changes.
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [editName, setEditName] = useState("");
   const [editWebsite, setEditWebsite] = useState("");
@@ -100,6 +103,7 @@ export function ProductDashboard() {
 
   const handleStartEditProduct = () => {
     if (!product) return;
+    setIsDetailsOpen(true);
     setEditName(product.name);
     setEditWebsite(product.website ?? "");
     setEditDescription(product.description);
@@ -352,58 +356,46 @@ export function ProductDashboard() {
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-4">
-                <div className="hidden sm:flex w-12 h-12 bg-primary/10 rounded-lg items-center justify-center flex-shrink-0">
-                  <Package className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setIsDetailsOpen((open) => !open)}
+                  className="w-full flex items-center justify-between gap-3 text-left"
+                  aria-expanded={isDetailsOpen}
+                >
+                  <span className="flex items-center gap-3 min-w-0">
+                    <span className="hidden sm:flex w-9 h-9 bg-primary/10 rounded-lg items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-primary" />
+                    </span>
                     <h1 className="text-xl sm:text-2xl font-bold text-foreground break-words">{product.name}</h1>
-                    <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
-                      <Pencil className="w-3.5 h-3.5 mr-2" />
-                      Edit
-                    </Button>
-                  </div>
-                  <p className="text-sm sm:text-base text-muted-foreground mt-1 line-clamp-3 sm:line-clamp-none">
-                    {product.description}
-                  </p>
-                  {product.website && (
-                    <a
-                      href={product.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-2 text-sm text-muted-foreground hover:text-primary transition-colors break-all"
-                    >
-                      <Globe className="w-4 h-4 flex-shrink-0" />
-                      {product.website.replace(/^https?:\/\//, "")}
-                    </a>
-                  )}
-                  {/* Stats, each linking to the matching view */}
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <Link to={`/dashboard/products/${product.id}/results`} className={STAT_CHIP_CLASS}>
-                      <span className="font-semibold text-foreground">{resultsTotal}</span>
-                      lead{resultsTotal === 1 ? "" : "s"}
-                    </Link>
-                    <Link
-                      to={`/dashboard/products/${product.id}/results?status=unresponded`}
-                      className={STAT_CHIP_CLASS}
-                    >
-                      <span className="font-semibold text-foreground">{notRespondedCount}</span>
-                      not responded
-                    </Link>
-                    <Link to={`/dashboard/products/${product.id}/results?found=1w`} className={STAT_CHIP_CLASS}>
-                      <span className="font-semibold text-foreground">{newThisWeekCount}</span>
-                      new this week
-                    </Link>
-                    {activeJobCount > 0 && (
-                      <button type="button" onClick={showJobs} className={STAT_CHIP_CLASS}>
-                        <CalendarClock className="w-3.5 h-3.5" />
-                        <span className="font-semibold text-foreground">{activeJobCount}</span>
-                        daily search{activeJobCount === 1 ? "" : "es"} active
-                      </button>
+                  </span>
+                  <span className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
+                    {isDetailsOpen ? "Hide details" : "Details"}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isDetailsOpen ? "rotate-180" : ""}`} />
+                  </span>
+                </button>
+                {isDetailsOpen && (
+                  <div className="mt-3 pt-3 border-t border-border space-y-2">
+                    <p className="text-sm sm:text-base text-muted-foreground whitespace-pre-wrap">{product.description}</p>
+                    {product.website && (
+                      <a
+                        href={product.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-primary transition-colors break-all"
+                      >
+                        <Globe className="w-4 h-4 flex-shrink-0" />
+                        {product.website.replace(/^https?:\/\//, "")}
+                      </a>
                     )}
+                    <div>
+                      <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />
+                        Edit product
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -411,7 +403,6 @@ export function ProductDashboard() {
 
         <FindLeadsCard
           productId={product.id}
-          startExpanded={allResults !== null && allResults.length === 0}
           onSearched={loadResults}
           onJobCreated={handleJobCreated}
         />
@@ -419,26 +410,50 @@ export function ProductDashboard() {
         {/* Search Results / Scheduled Searches */}
         <Card id="product-results" className="scroll-mt-20">
           <Tabs value={resultsTab} onValueChange={(value) => setResultsTab(value as "results" | "jobs")}>
-            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
-              <TabsList>
-                <TabsTrigger value="results">Search Results</TabsTrigger>
-                <TabsTrigger value="jobs">Scheduled Searches</TabsTrigger>
-              </TabsList>
-              {resultsTab === "results" ? (
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={`/dashboard/products/${product.id}/results`}>
-                    View all results
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" asChild>
-                  <Link to={`/dashboard/products/${product.id}/jobs`}>
-                    View all scheduled searches
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Link>
-                </Button>
-              )}
+            <CardHeader className="space-y-3">
+              <div className="flex flex-row flex-wrap items-center justify-between gap-3">
+                <TabsList>
+                  <TabsTrigger value="results">Search Results</TabsTrigger>
+                  <TabsTrigger value="jobs">Scheduled Searches</TabsTrigger>
+                </TabsList>
+                {resultsTab === "results" ? (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/dashboard/products/${product.id}/results`}>
+                      View all results
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to={`/dashboard/products/${product.id}/jobs`}>
+                      View all scheduled searches
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              {/* Stats, each linking to the matching view */}
+              <div className="flex flex-wrap gap-2">
+                <Link to={`/dashboard/products/${product.id}/results`} className={STAT_CHIP_CLASS}>
+                  <span className="font-semibold text-foreground">{resultsTotal}</span>
+                  lead{resultsTotal === 1 ? "" : "s"}
+                </Link>
+                <Link to={`/dashboard/products/${product.id}/results?status=unresponded`} className={STAT_CHIP_CLASS}>
+                  <span className="font-semibold text-foreground">{notRespondedCount}</span>
+                  not responded
+                </Link>
+                <Link to={`/dashboard/products/${product.id}/results?found=1w`} className={STAT_CHIP_CLASS}>
+                  <span className="font-semibold text-foreground">{newThisWeekCount}</span>
+                  new this week
+                </Link>
+                {activeJobCount > 0 && (
+                  <button type="button" onClick={showJobs} className={STAT_CHIP_CLASS}>
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    <span className="font-semibold text-foreground">{activeJobCount}</span>
+                    daily search{activeJobCount === 1 ? "" : "es"} active
+                  </button>
+                )}
+              </div>
             </CardHeader>
 
             <TabsContent value="results">
@@ -463,20 +478,16 @@ export function ProductDashboard() {
                         />
                       ))}
                     </div>
-                    <Link
-                      to={`/dashboard/products/${product.id}/results`}
-                      className="flex items-center justify-between gap-3 mt-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition-colors group"
-                    >
-                      <span className="text-sm text-foreground">
-                        {resultsTotal > RESULTS_BOX_LIMIT
-                          ? `Showing ${results.length} of ${resultsTotal} results`
-                          : "See every result, sorted and filterable"}
-                      </span>
-                      <span className="flex items-center gap-1 text-sm font-medium text-primary">
+                    <p className="text-xs text-muted-foreground mt-2 px-1">
+                      Latest {results.length} of {resultsTotal}. Open the full list to sort, filter, export and see
+                      every lead's details.
+                    </p>
+                    <Button asChild className="w-full mt-3">
+                      <Link to={`/dashboard/products/${product.id}/results`}>
                         View all results
-                        <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                      </span>
-                    </Link>
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </Link>
+                    </Button>
                   </>
                 )}
               </CardContent>

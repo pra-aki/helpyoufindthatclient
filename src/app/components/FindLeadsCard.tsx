@@ -18,7 +18,7 @@ import { FORUM_PLATFORMS } from "../lib/constants";
 import { searchThreads, createJob, ApiError } from "../lib/api";
 import { useCredits } from "../lib/credits-context";
 import { toDateInputValue, todayDateInputValue, daysAgoDateInputValue } from "../lib/dates";
-import { Search, Loader2, CalendarClock, Mail, ChevronUp } from "lucide-react";
+import { Search, Loader2, CalendarClock, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 const LEAD_COUNT_OPTIONS = [10, 20, 30];
@@ -54,34 +54,17 @@ const shortDate = (value: string) =>
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-/** "Last 3 days" when the range ends today, otherwise "Mar 1 – Mar 4". */
-function describeRange(from: string, to: string) {
-  if (to === todayDateInputValue()) {
-    const days = Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86400000);
-    return days === 0 ? "Today" : `Last ${plural(days, "day")}`;
-  }
-  return `${shortDate(from)} – ${shortDate(to)}`;
-}
-
-/**
- * One card for both one-off searches and daily scheduled searches. Collapsed,
- * it shows a one-line summary and a button to run it; expanded, the full form.
- */
+/** One card for both one-off searches and daily scheduled searches. */
 export function FindLeadsCard({
   productId,
-  startExpanded,
   onSearched,
   onJobCreated,
 }: {
   productId: string;
-  // Expanded until the user toggles it; the caller passes true for products with no leads yet.
-  startExpanded: boolean;
   onSearched: () => void;
   onJobCreated: () => void;
 }) {
   const { balance, refresh: refreshCredits } = useCredits();
-  const [userExpanded, setUserExpanded] = useState<boolean | null>(null);
-  const expanded = userExpanded ?? startExpanded;
   const [mode, setMode] = useState<Mode>("once");
 
   // All forums are searched by default; the user can uncheck any of them.
@@ -109,13 +92,6 @@ export function FindLeadsCard({
       : creditsForLeadCount(JOB_LEAD_COUNT) * selectedForums.length;
   const notEnoughCredits = balance !== null && cost > balance;
   const isBusy = isSearching || isCreatingJob;
-
-  const forumsSummary =
-    selectedForums.length === FORUM_PLATFORMS.length ? "All forums" : plural(selectedForums.length, "forum");
-  const summary =
-    mode === "once"
-      ? `${numberOfLeads} leads per forum · ${describeRange(fromDate, toDate)} · ${forumsSummary}`
-      : `Daily · ${JOB_LEAD_COUNT} leads per forum · until ${shortDate(jobEndDate)} · ${forumsSummary}`;
 
   const validate = () => {
     if (selectedForums.length === 0) {
@@ -226,175 +202,148 @@ export function FindLeadsCard({
   return (
     <Card>
       <CardContent className="pt-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-foreground">Find leads</h2>
-            {!expanded && <p className="text-sm text-muted-foreground mt-0.5">{summary}</p>}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setUserExpanded(!expanded)}
-            disabled={isBusy}
-            className="flex-shrink-0"
-            aria-expanded={expanded}
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="w-4 h-4 mr-1" />
-                Hide
-              </>
-            ) : (
-              "Change"
-            )}
-          </Button>
+        <h2 className="text-lg font-semibold text-foreground">Find leads</h2>
+
+        {/* Run once / Run daily */}
+        <div className="grid grid-cols-2 sm:inline-grid gap-1 p-1 rounded-lg bg-muted" role="radiogroup" aria-label="Search type">
+          {(["once", "daily"] as Mode[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={mode === value}
+              onClick={() => setMode(value)}
+              disabled={isBusy}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                mode === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {value === "once" ? "Run once" : "Run daily"}
+            </button>
+          ))}
         </div>
 
-        {expanded && (
-          <>
-            {/* Run once / Run daily */}
-            <div className="grid grid-cols-2 sm:inline-grid gap-1 p-1 rounded-lg bg-muted" role="radiogroup" aria-label="Search type">
-              {(["once", "daily"] as Mode[]).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === value}
-                  onClick={() => setMode(value)}
-                  disabled={isBusy}
-                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    mode === value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+        {mode === "once" ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="space-y-1.5 col-span-2 sm:col-span-1">
+              <Label htmlFor="numberOfLeads">Leads per forum</Label>
+              <Select value={String(numberOfLeads)} onValueChange={(value) => setNumberOfLeads(Number(value))}>
+                <SelectTrigger id="numberOfLeads" className="w-full">
+                  <SelectValue>{numberOfLeads} leads</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {LEAD_COUNT_OPTIONS.map((count) => (
+                    <SelectItem key={count} value={String(count)}>
+                      {count} leads
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                1 credit per 10 leads, per forum. Only relevant leads are kept, so you may get fewer.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="fromDate">From</Label>
+              <Input
+                id="fromDate"
+                type="date"
+                value={fromDate}
+                min={earliestFromDateFor(toDate)}
+                max={toDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="toDate">To</Label>
+              <Input
+                id="toDate"
+                type="date"
+                value={toDate}
+                min={fromDate}
+                max={todayDateInputValue()}
+                onChange={(e) => {
+                  const newToDate = e.target.value;
+                  setToDate(newToDate);
+                  // Keep the range within the 3-month cap if it now moves out of bounds.
+                  const earliestFrom = earliestFromDateFor(newToDate);
+                  if (fromDate < earliestFrom) {
+                    setFromDate(earliestFrom);
+                  }
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground col-span-2 sm:col-start-2 -mt-1.5">
+              Posts from up to {MAX_RANGE_MONTHS} months back.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="jobEndDate">Ends on</Label>
+                <Input
+                  id="jobEndDate"
+                  type="date"
+                  value={jobEndDate}
+                  min={todayDateInputValue()}
+                  max={daysFromNow(MAX_JOB_DAYS)}
+                  onChange={(e) => setJobEndDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="jobMinScore">Minimum relevance</Label>
+                <Select
+                  value={String(jobMinScorePercent)}
+                  onValueChange={(value) => setJobMinScorePercent(Number(value))}
                 >
-                  {value === "once" ? "Run once" : "Run daily"}
-                </button>
-              ))}
-            </div>
-
-            {mode === "once" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="space-y-1.5 col-span-2 sm:col-span-1">
-                  <Label htmlFor="numberOfLeads">Leads per forum</Label>
-                  <Select value={String(numberOfLeads)} onValueChange={(value) => setNumberOfLeads(Number(value))}>
-                    <SelectTrigger id="numberOfLeads" className="w-full">
-                      <SelectValue>{numberOfLeads} leads</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LEAD_COUNT_OPTIONS.map((count) => (
-                        <SelectItem key={count} value={String(count)}>
-                          {count} leads
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    1 credit per 10 leads, per forum. Only relevant leads are kept, so you may get fewer.
-                  </p>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="fromDate">From</Label>
-                  <Input
-                    id="fromDate"
-                    type="date"
-                    value={fromDate}
-                    min={earliestFromDateFor(toDate)}
-                    max={toDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="toDate">To</Label>
-                  <Input
-                    id="toDate"
-                    type="date"
-                    value={toDate}
-                    min={fromDate}
-                    max={todayDateInputValue()}
-                    onChange={(e) => {
-                      const newToDate = e.target.value;
-                      setToDate(newToDate);
-                      // Keep the range within the 3-month cap if it now moves out of bounds.
-                      const earliestFrom = earliestFromDateFor(newToDate);
-                      if (fromDate < earliestFrom) {
-                        setFromDate(earliestFrom);
-                      }
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground col-span-2 sm:col-start-2 -mt-1.5">
-                  Posts from up to {MAX_RANGE_MONTHS} months back.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="jobEndDate">Ends on</Label>
-                    <Input
-                      id="jobEndDate"
-                      type="date"
-                      value={jobEndDate}
-                      min={todayDateInputValue()}
-                      max={daysFromNow(MAX_JOB_DAYS)}
-                      onChange={(e) => setJobEndDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="jobMinScore">Minimum relevance</Label>
-                    <Select
-                      value={String(jobMinScorePercent)}
-                      onValueChange={(value) => setJobMinScorePercent(Number(value))}
-                    >
-                      <SelectTrigger id="jobMinScore" className="w-full">
-                        <SelectValue>{jobMinScorePercent}%</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {JOB_MIN_SCORE_OPTIONS.map((percent) => (
-                          <SelectItem key={percent} value={String(percent)}>
-                            {percent}%
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Searches {JOB_LEAD_COUNT} leads per forum once a day until the end date.
-                </p>
-                <div className="flex items-start gap-2 p-3 rounded-lg border border-border text-xs text-muted-foreground">
-                  <Mail className="w-4 h-4 flex-shrink-0 mt-px" />
-                  <p>
-                    You'll get an email at your account address when this job finds new leads. You can turn these
-                    emails off anytime in{" "}
-                    <Link to="/dashboard/profile" className="underline underline-offset-2 text-foreground">
-                      your profile settings
-                    </Link>
-                    . Searches still run and leads are still saved.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Forums</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                {FORUM_PLATFORMS.map((forum) => (
-                  <label key={forum.id} htmlFor={`forum-${forum.id}`} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      id={`forum-${forum.id}`}
-                      checked={selectedForums.includes(forum.id)}
-                      onCheckedChange={() => toggleForum(forum.id)}
-                    />
-                    <span className="text-sm text-foreground">{forum.label}</span>
-                  </label>
-                ))}
+                  <SelectTrigger id="jobMinScore" className="w-full">
+                    <SelectValue>{jobMinScorePercent}%</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {JOB_MIN_SCORE_OPTIONS.map((percent) => (
+                      <SelectItem key={percent} value={String(percent)}>
+                        {percent}%
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </>
+            <p className="text-xs text-muted-foreground">
+              Searches {JOB_LEAD_COUNT} leads per forum once a day until the end date.
+            </p>
+            <div className="flex items-start gap-2 p-3 rounded-lg border border-border text-xs text-muted-foreground">
+              <Mail className="w-4 h-4 flex-shrink-0 mt-px" />
+              <p>
+                You'll get an email at your account address when this job finds new leads. You can turn these
+                emails off anytime in{" "}
+                <Link to="/dashboard/profile" className="underline underline-offset-2 text-foreground">
+                  your profile settings
+                </Link>
+                . Searches still run and leads are still saved.
+              </p>
+            </div>
+          </div>
         )}
+
+        <div className="space-y-2">
+          <Label>Forums</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg border border-border bg-muted/20">
+            {FORUM_PLATFORMS.map((forum) => (
+              <label key={forum.id} htmlFor={`forum-${forum.id}`} className="flex items-center gap-2 cursor-pointer">
+                <Checkbox
+                  id={`forum-${forum.id}`}
+                  checked={selectedForums.includes(forum.id)}
+                  onCheckedChange={() => toggleForum(forum.id)}
+                />
+                <span className="text-sm text-foreground">{forum.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
           {actionButton}
