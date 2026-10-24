@@ -172,7 +172,7 @@ function LayoutContent() {
       {/* Main Content */}
       <main className="flex-1 flex">
         {/* Page Content */}
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <Outlet />
         </div>
       </main>

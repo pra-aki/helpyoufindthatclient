@@ -132,15 +132,18 @@ export function LeadResultRow({
           />
         )}
 
-        <button
-          type="button"
-          onClick={handleOpenThread}
-          className="flex-1 min-w-0 flex items-start justify-between gap-3 p-2.5 text-left"
-        >
-          <div className="flex items-start gap-3 min-w-0">
+        {/* On phones the score and actions drop to their own line under the text, so the title keeps its width. */}
+        <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-start">
+          <button
+            type="button"
+            onClick={handleOpenThread}
+            className="flex-1 min-w-0 flex items-start gap-3 p-2.5 text-left"
+          >
             <span className="flex-shrink-0 mt-0.5">{getPlatformIcon(result.source)}</span>
             <div className="min-w-0">
-              <p className="font-medium text-foreground text-sm break-words">{result.title || result.link}</p>
+              <p className="font-medium text-foreground text-sm break-words [overflow-wrap:anywhere]">
+                {result.title || result.link}
+              </p>
               <p className="text-xs text-muted-foreground break-words line-clamp-2">
                 {getPlatformLabel(result.source)}
                 {result.whyRelevant ? ` · ${result.whyRelevant}` : ""}
@@ -150,119 +153,122 @@ export function LeadResultRow({
                 {isResponded && <span className="text-primary font-medium"> · Responded</span>}
               </p>
             </div>
-          </div>
-          {matchScore !== null && (
-            <span className="text-xs font-semibold text-primary flex-shrink-0">{matchScore}% match</span>
-          )}
-        </button>
+          </button>
 
-        {onToggleResponded && (
-          <Button
-            type="button"
-            variant={isResponded ? "default" : "outline"}
-            size="icon"
-            onClick={() => onToggleResponded(result.id, !isResponded)}
-            className={`flex-shrink-0 mt-1.5 h-7 w-7 ${isResponded ? "" : "text-muted-foreground hover:text-primary"}`}
-            aria-label={isResponded ? "Mark as not responded" : "Mark as responded"}
-            aria-pressed={isResponded}
-            title={isResponded ? "Responded — click to undo" : "Mark as responded"}
-          >
-            <Check className="w-3.5 h-3.5" />
-          </Button>
-        )}
+          <div className="flex items-center gap-1 pl-10 pr-1 pb-2 sm:pl-0 sm:pb-0 sm:pt-1.5 flex-shrink-0">
+            {matchScore !== null && (
+              <span className="text-xs font-semibold text-primary whitespace-nowrap mr-auto sm:mr-2 sm:mt-px">{matchScore}% match</span>
+            )}
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={handleThumbsUp}
-          disabled={isRating}
-          className={`flex-shrink-0 mt-1.5 h-7 w-7 ${useful === true ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
-          aria-label="Mark lead as useful"
-          aria-pressed={useful === true}
-          title="Useful"
-        >
-          <ThumbsUp className="w-3.5 h-3.5" fill={useful === true ? "currentColor" : "none"} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={handleThumbsDown}
-          disabled={isRating}
-          className={`flex-shrink-0 mt-1.5 h-7 w-7 ${useful === false ? "text-destructive" : "text-muted-foreground hover:text-foreground"}`}
-          aria-label="Mark lead as not useful"
-          aria-pressed={useful === false}
-          title="Not useful"
-        >
-          <ThumbsDown className="w-3.5 h-3.5" fill={useful === false ? "currentColor" : "none"} />
-        </Button>
-
-        <Dialog open={isNoteOpen} onOpenChange={setIsNoteOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Not a useful lead?</DialogTitle>
-              <DialogDescription className="break-words">
-                "{result.title || result.link}" — what was wrong with it? (optional)
-              </DialogDescription>
-            </DialogHeader>
-            <Textarea
-              placeholder="e.g. They are selling a CRM, not looking for one"
-              value={ratingNote}
-              onChange={(e) => setRatingNote(e.target.value)}
-              rows={3}
-              maxLength={2000}
-              className="resize-none"
-            />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsNoteOpen(false)} disabled={isRating}>
-                Cancel
-              </Button>
-              <Button type="button" onClick={() => saveRating(false, ratingNote.trim() || undefined)} disabled={isRating}>
-                {isRating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  "Submit"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {onDelete && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+            {onToggleResponded && (
               <Button
                 type="button"
-                variant="ghost"
+                variant={isResponded ? "default" : "outline"}
                 size="icon"
-                className="flex-shrink-0 mt-1.5 mr-1 h-7 w-7 text-muted-foreground hover:text-destructive"
-                aria-label="Delete lead"
+                onClick={() => onToggleResponded(result.id, !isResponded)}
+                className={`flex-shrink-0 h-7 w-7 ${isResponded ? "" : "text-muted-foreground hover:text-primary"}`}
+                aria-label={isResponded ? "Mark as not responded" : "Mark as responded"}
+                aria-pressed={isResponded}
+                title={isResponded ? "Responded — click to undo" : "Mark as responded"}
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Check className="w-3.5 h-3.5" />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
-                <AlertDialogDescription className="break-words">
-                  This removes "{result.title || result.link}" from your saved results. This can't be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(result.id)}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
+            )}
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleThumbsUp}
+              disabled={isRating}
+              className={`flex-shrink-0 h-7 w-7 ${useful === true ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              aria-label="Mark lead as useful"
+              aria-pressed={useful === true}
+              title="Useful"
+            >
+              <ThumbsUp className="w-3.5 h-3.5" fill={useful === true ? "currentColor" : "none"} />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleThumbsDown}
+              disabled={isRating}
+              className={`flex-shrink-0 h-7 w-7 ${useful === false ? "text-destructive" : "text-muted-foreground hover:text-foreground"}`}
+              aria-label="Mark lead as not useful"
+              aria-pressed={useful === false}
+              title="Not useful"
+            >
+              <ThumbsDown className="w-3.5 h-3.5" fill={useful === false ? "currentColor" : "none"} />
+            </Button>
+
+            <Dialog open={isNoteOpen} onOpenChange={setIsNoteOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Not a useful lead?</DialogTitle>
+                  <DialogDescription className="break-words">
+                    "{result.title || result.link}" — what was wrong with it? (optional)
+                  </DialogDescription>
+                </DialogHeader>
+                <Textarea
+                  placeholder="e.g. They are selling a CRM, not looking for one"
+                  value={ratingNote}
+                  onChange={(e) => setRatingNote(e.target.value)}
+                  rows={3}
+                  maxLength={2000}
+                  className="resize-none"
+                />
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setIsNoteOpen(false)} disabled={isRating}>
+                    Cancel
+                  </Button>
+                  <Button type="button" onClick={() => saveRating(false, ratingNote.trim() || undefined)} disabled={isRating}>
+                    {isRating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Submit"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            {onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="flex-shrink-0 h-7 w-7 text-muted-foreground hover:text-destructive"
+                    aria-label="Delete lead"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
+                    <AlertDialogDescription className="break-words">
+                      This removes "{result.title || result.link}" from your saved results. This can't be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(result.id)}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        </div>
       </div>
 
       {expanded && (
-        <div className="ml-11 mr-3 mb-3 -mt-1 p-3 rounded-md border border-border bg-muted/30 space-y-2 text-sm">
+        <div className="ml-8 sm:ml-11 mr-3 mb-3 -mt-1 p-3 rounded-md border border-border bg-muted/30 space-y-2 text-sm">
           <p className="font-medium text-foreground break-words">{result.title || result.link}</p>
           {result.summary && (
             <div>
@@ -288,7 +294,7 @@ export function LeadResultRow({
           <button
             type="button"
             onClick={handleOpenThread}
-            className="text-xs text-primary hover:underline break-all text-left"
+            className="text-xs text-primary hover:underline break-all [overflow-wrap:anywhere] text-left"
           >
             {result.link}
           </button>
