@@ -55,6 +55,7 @@ import {
   CalendarClock,
   Info,
   Coins,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -387,6 +388,30 @@ export function ProductDashboard() {
   return (
     <div className="overflow-y-auto main-content h-full">
       <div className="w-full px-[1in] py-8 space-y-6">
+        {/* Breadcrumb with product switcher */}
+        <div className="flex items-center gap-2 text-sm">
+          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
+            All Products
+          </Link>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          {allProducts.length > 1 ? (
+            <Select value={product.id} onValueChange={(id) => navigate(`/dashboard/products/${id}`)}>
+              <SelectTrigger size="sm" className="w-auto max-w-[16rem] font-medium" aria-label="Switch product">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allProducts.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <span className="font-medium text-foreground">{product.name}</span>
+          )}
+        </div>
+
         {/* Product Header */}
         <Card>
           <CardContent className="pt-6">
@@ -475,26 +500,10 @@ export function ProductDashboard() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-4">
                     <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
-                    <div className="flex items-center gap-2">
-                      {allProducts.length > 1 && (
-                        <Select value={product.id} onValueChange={(id) => navigate(`/dashboard/products/${id}`)}>
-                          <SelectTrigger size="sm" className="w-40" aria-label="Switch product">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allProducts.map((p) => (
-                              <SelectItem key={p.id} value={p.id}>
-                                {p.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                      <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
-                        <Pencil className="w-3.5 h-3.5 mr-2" />
-                        Edit
-                      </Button>
-                    </div>
+                    <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
+                      <Pencil className="w-3.5 h-3.5 mr-2" />
+                      Edit
+                    </Button>
                   </div>
                   <p className="text-muted-foreground mt-1">{product.description}</p>
                   <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
