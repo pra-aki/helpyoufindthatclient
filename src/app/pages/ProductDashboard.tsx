@@ -33,6 +33,7 @@ import {
   listProductResults,
   setResultResponded,
   createJob,
+  listProducts,
   listJobs,
   ApiProduct,
   ApiResult,
@@ -92,6 +93,7 @@ export function ProductDashboard() {
   const { refresh: refreshCredits } = useCredits();
 
   const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [allProducts, setAllProducts] = useState<ApiProduct[]>([]);
   const [productError, setProductError] = useState<string | null>(null);
   const [results, setResults] = useState<ApiResult[] | null>(null);
   const [resultsTotal, setResultsTotal] = useState(0);
@@ -105,6 +107,12 @@ export function ProductDashboard() {
   const [editDescription, setEditDescription] = useState("");
   const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+  useEffect(() => {
+    listProducts()
+      .then(setAllProducts)
+      .catch(() => setAllProducts([]));
+  }, []);
 
   const handleGenerateDescription = async () => {
     if (!editWebsite) {
@@ -467,10 +475,26 @@ export function ProductDashboard() {
                 <div className="flex-1">
                   <div className="flex items-start justify-between gap-4">
                     <h1 className="text-2xl font-bold text-foreground">{product.name}</h1>
-                    <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
-                      <Pencil className="w-3.5 h-3.5 mr-2" />
-                      Edit
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {allProducts.length > 1 && (
+                        <Select value={product.id} onValueChange={(id) => navigate(`/dashboard/products/${id}`)}>
+                          <SelectTrigger size="sm" className="w-40" aria-label="Switch product">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allProducts.map((p) => (
+                              <SelectItem key={p.id} value={p.id}>
+                                {p.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Button variant="outline" size="sm" onClick={handleStartEditProduct}>
+                        <Pencil className="w-3.5 h-3.5 mr-2" />
+                        Edit
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-muted-foreground mt-1">{product.description}</p>
                   <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
