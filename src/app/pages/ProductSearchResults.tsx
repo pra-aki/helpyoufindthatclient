@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -163,11 +163,21 @@ export function ProductSearchResults() {
   const [total, setTotal] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const [sortBy, setSortBy] = useState<SortBy>("relevance");
+  // The product page's stat links open this page pre-filtered, e.g. ?status=unresponded or ?found=1w.
+  const [searchParams] = useSearchParams();
+  const initialStatus = searchParams.get("status");
+  const initialFound = searchParams.get("found");
+
+  const [sortBy, setSortBy] = useState<SortBy>(initialFound ? "date" : "relevance");
   const [selectedForums, setSelectedForums] = useState<string[]>(FORUM_PLATFORMS.map((forum) => forum.id));
   const [postedDateFilter, setPostedDateFilter] = useState<DateFilterState>(defaultDateFilter);
-  const [searchDateFilter, setSearchDateFilter] = useState<DateFilterState>(defaultDateFilter);
-  const [respondedFilter, setRespondedFilter] = useState<RespondedFilter>("all");
+  const [searchDateFilter, setSearchDateFilter] = useState<DateFilterState>(() => {
+    const filter = defaultDateFilter();
+    return initialFound && initialFound in PRESET_DAYS ? { ...filter, preset: initialFound as DatePreset } : filter;
+  });
+  const [respondedFilter, setRespondedFilter] = useState<RespondedFilter>(
+    initialStatus === "unresponded" || initialStatus === "responded" ? initialStatus : "all"
+  );
 
   const toggleForum = (forumId: string) => {
     setSelectedForums((prev) =>
@@ -345,7 +355,7 @@ export function ProductSearchResults() {
   if (productError) {
     return (
       <div className="overflow-y-auto main-content h-full">
-        <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12 gap-4">
               <p className="text-muted-foreground">{productError}</p>
@@ -370,7 +380,7 @@ export function ProductSearchResults() {
 
   return (
     <div className="overflow-y-auto main-content h-full">
-      <div className="w-full px-[1in] py-8 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-4 sm:space-y-6">
         <Button
           variant="ghost"
           size="sm"
